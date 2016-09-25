@@ -100,6 +100,14 @@ class CaffeLoss : public Operator {
                                       param_.num_out);
     CaffeOpSetup();
     caffeOp_->Forward(bot_, top_);
+
+#if defined(__CUDACC__)
+    // Sync cpu data to gpu data
+    for (uint32_t i = 0; i < top_.size(); ++i)
+      top_[i]->gpu_data();
+
+    CHECK_EQ(cudaStreamSynchronize(NULL), cudaSuccess);
+#endif  // __CUDACC__
   }
 
   // Set up caffe op with real data
@@ -145,6 +153,14 @@ class CaffeLoss : public Operator {
       flags_[i] = req[i] != kNullOp;
 
     caffeOp_->Backward(top_, flags_, bot_);
+
+#if defined(__CUDACC__)
+    // Sync cpu diff to gpu diff
+    for (uint32_t i = 0; i < bot_.size(); ++i)
+      bot_[i]->gpu_diff();
+
+    CHECK_EQ(cudaStreamSynchronize(NULL), cudaSuccess);
+#endif  // __CUDACC__
   }
 
  private:
